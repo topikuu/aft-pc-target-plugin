@@ -30,6 +30,7 @@ setup(name=PROJECT_NAME,
       entry_points={
           "aft_plugins": [
               "pcdevice = aft.plugins.pc.pcdevice:PCDevice",
+              "pcstopology = aft.plugins.pc.pcstopology:PCsTopology",
           ],
       },
      )
