@@ -29,6 +29,7 @@ setup(name=PROJECT_NAME,
       packages=[PACKAGE_NAME],
       entry_points={
           "aft_plugins": [
+              "pcdevice = aft.plugins.pc.pcdevice:PCDevice",
           ],
       },
      )
