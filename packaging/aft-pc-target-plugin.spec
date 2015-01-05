@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-14 Intel, Inc.
+# Copyright (c) 2013, 2014, 2015 Intel, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -12,7 +12,7 @@
 
 Name:       aft-pc-target-plugin
 Summary:    AFT plugin for PC-like devices
-Version:    0.1.0
+Version:    0.1.1
 Release:    1
 Group:      Development/Tools
 License:    GPL-2.0+
@@ -50,9 +50,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{python_sitelib}/%{plugin_name}-%{version}-*.egg-info
-%dir %{python_sitelib}/%{base_project_name}
-%dir %{python_sitelib}/%{base_project_name}/plugins
-%{python_sitelib}/%{base_project_name}/plugins/%{plugin_name}
+%{python_sitelib}/%{base_project_name}
 
 
 %changelog

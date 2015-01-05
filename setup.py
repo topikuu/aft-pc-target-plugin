@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # vim: ai ts=4 sts=4 et sw=4
 #
-# Copyright (c) 2013-14 Intel, Inc.
+# Copyright (c) 2013, 2014, 2015 Intel, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,7 @@ PROJECT_NAME = "pc"
 PACKAGE_NAME = ".".join([BASE_PROJECT_NAME, "plugins", PROJECT_NAME])
 
 setup(name=PROJECT_NAME,
-      version="0.1.0",
+      version="0.1.1",
       description="AFT plugin for PC-like devices",
       author="Igor Stoppa",
       author_email="igor.stoppa@intel.com",
