@@ -12,7 +12,7 @@
 
 Name:       aft-pc-target-plugin
 Summary:    AFT plugin for PC-like devices
-Version:    0.1.1
+Version:    0.2.0
 Release:    1
 Group:      Development/Tools
 License:    GPL-2.0+
@@ -26,6 +26,7 @@ BuildRequires: fdupes
 
 Requires: python-setuptools
 Requires: aft-core
+Requires: pem
 
 %define     base_project_name aft
 %define     plugin_name pc
