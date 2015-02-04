@@ -15,7 +15,7 @@ Summary:    AFT plugin for PC-like devices
 Version:    0.2.0
 Release:    1
 Group:      Development/Tools
-License:    GPL-2.0+
+License:    GPL-2.0
 BuildArch:  noarch
 URL:        http://otctools.jf.intel.com
 Source:     %{name}-%{version}.tar.gz
