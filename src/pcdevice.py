@@ -41,6 +41,8 @@ class PCDevice(Device):
         Initializer for class variables and parent class.
         """
         try:
+            logging.debug("PCDevice class init_data: {0}".
+                          format(init_data))
             cls._leases_file_name = init_data["leases_file_name"]
             cls._root_partition = init_data["root_partition"]
             cls._service_mode = init_data["service_mode"]
@@ -52,6 +54,11 @@ class PCDevice(Device):
             return False
 
     def __init__(self, model, dev_id, channel, name):
+        logging.debug("Creating PCDevice instance with parameters:\n"
+                      "\tmodel: {0}\n".format(model) +
+                      "\tdev_id: {0}\n".format(dev_id) +
+                      "\tchannel: {0}\n".format(channel) +
+                      "\tname: {0}".format(name))
         super(PCDevice, self).__init__(model=model, dev_id=dev_id,
                                        channel=channel, name=name)
 
