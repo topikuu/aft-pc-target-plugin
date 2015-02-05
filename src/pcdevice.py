@@ -78,7 +78,11 @@ class PCDevice(Device):
         for lease in cls.get_registered_leases():
             requestor_mac, leased_ip = lease.split()[1:3]
             if requestor_mac == mac:
+                logging.info("Found device with MAC {0}".format(mac) +
+                             " and IP {0}".format(leased_ip))
                 return leased_ip
+        logging.critical("Not found any IP lease for device with"
+                         "MAC {0}".format(mac))
         return None
 
     def get_registered_lease(self):
