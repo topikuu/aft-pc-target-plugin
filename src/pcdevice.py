@@ -53,14 +53,10 @@ class PCDevice(Device):
                              .format(error))
             return False
 
-    def __init__(self, model, dev_id, channel, name):
-        logging.debug("Creating PCDevice instance with parameters:\n"
-                      "\tmodel: {0}\n".format(model) +
-                      "\tdev_id: {0}\n".format(dev_id) +
-                      "\tchannel: {0}\n".format(channel) +
-                      "\tname: {0}".format(name))
-        super(PCDevice, self).__init__(model=model, dev_id=dev_id,
-                                       channel=channel, name=name)
+    def __init__(self, device_descriptor, channel):
+        super(PCDevice, self).__init__(device_descriptori=
+                                       device_descriptor,
+                                       name=name)
 
     @classmethod
     def get_registered_leases(cls):
