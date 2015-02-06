@@ -54,9 +54,9 @@ class PCDevice(Device):
             return False
 
     def __init__(self, device_descriptor, channel):
-        super(PCDevice, self).__init__(device_descriptori=
+        super(PCDevice, self).__init__(device_descriptor=
                                        device_descriptor,
-                                       name=name)
+                                       channel=channel)
 
     @classmethod
     def get_registered_leases(cls):
