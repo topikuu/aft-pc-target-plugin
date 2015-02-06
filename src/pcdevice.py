@@ -22,6 +22,8 @@ from aft.device import Device
 from aft.plugins.pc.ssh import Ssh
 from aft.plugins.pc.scp import Scp
 
+from pem.main import main as pem_main
+
 VERSION = "0.1.0"
 
 
@@ -57,6 +59,8 @@ class PCDevice(Device):
         super(PCDevice, self).__init__(device_descriptor=
                                        device_descriptor,
                                        channel=channel)
+        self.pem_interface = device_descriptor["pem_interface"]
+        self.pem_port = device_descriptor["pem_port"]
 
     @classmethod
     def get_registered_leases(cls):
