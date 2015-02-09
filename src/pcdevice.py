@@ -47,8 +47,8 @@ class PCDevice(Device):
                           format(init_data))
             cls._leases_file_name = init_data["leases_file_name"]
             cls._root_partition = init_data["root_partition"]
-            cls._service_mode = init_data["service_mode"]
-            cls._test_mode = init_data["test_mode"]
+            cls._service_mode = {"name": init_data["service_mode"], "sequence":0}
+            cls._test_mode = {"name": init_data["test_mode"], "sequence":0}
             return Ssh.init() and Scp.init()
         except KeyError as error:
             logging.critical("Error initializing PC Device Class {0}."
@@ -61,6 +61,10 @@ class PCDevice(Device):
                                        channel=channel)
         self.pem_interface = device_descriptor["pem_interface"]
         self.pem_port = device_descriptor["pem_port"]
+        self._test_mode["sequence"] = \
+            device_descriptor["catalog_entry"]["test_mode_keystrokes"]
+        self._service_mode["sequence"] = \
+            device_descriptor["catalog_entry"]["service_mode_keystrokes"]
 
     @classmethod
     def get_registered_leases(cls):
@@ -100,16 +104,16 @@ class PCDevice(Device):
         logging.debug("Trying to ssh into {0} .".format(dev_ip))
         retval = Ssh.execute(dev_ip=dev_ip,
                              command=("cat", "/proc/version", "|",
-                                      "grep", mode),
+                                      "grep", mode["name"]),
                              timeout=cls._SSH_SHORT_GENERIC_TIMEOUT, )
         if retval is False:
             logging.debug("Ssh failed.")
-        elif mode not in retval:
-            logging.debug("Device not in \"{0}\" mode.".format(mode))
+        elif mode["name"] not in retval:
+            logging.debug("Device not in \"{0}\" mode.".format(mode["name"]))
         else:
-            logging.debug("Device in \"{0}\" mode.".format(mode))
+            logging.debug("Device in \"{0}\" mode.".format(mode["name"]))
 
-        return retval is not False and mode in retval
+        return retval is not False and mode["name"] in retval
 
     @classmethod
     def by_ip_is_in_service_mode(cls, dev_ip):
@@ -181,7 +185,7 @@ class PCDevice(Device):
         is in the mode specified.
         """
         logging.info("Check if device {0} is in mode {1} ."
-                     .format(self.get_registered_lease(), mode))
+                     .format(self.get_registered_lease(), mode["name"]))
         for _ in range(self._MODE_TEST_TIMEOUT / self._POLLING_INTERVAL):
             if self._is_responsive():
                 return self._is_ready(mode=mode)
@@ -190,7 +194,7 @@ class PCDevice(Device):
 			     .format(self._POLLING_INTERVAL))
                 time.sleep(self._POLLING_INTERVAL)
         logging.info("Device {0} is not in mode {1} ."
-                     .format(self.get_registered_lease(), mode))
+                     .format(self.get_registered_lease(), mode["name"]))
         return False
 
     def _enter_mode(self, mode):
@@ -205,16 +209,16 @@ class PCDevice(Device):
         for _ in range(2):
             self._power_cycle()
             logging.info("Checking for device in mode \"{0}\" ."
-                         .format(mode))
+                         .format(mode["name"]))
             if self._wait_for_mode(mode=mode):
                 logging.info("Found device in mode \"{0}\" ."
-                             .format(mode))
+                             .format(mode["name"]))
                 return True
             else:
                 logging.info("Devince in mode \"{0}\" was not found."
-                             .format(mode))
+                             .format(mode["name"]))
         logging.critical("Unable to get device {0} in mode \"{1}.\""
-                         .format(self.dev_id, mode))
+                         .format(self.dev_id, mode["name"]))
         return False
 
     def _write_image(self, nfs_file_name):
