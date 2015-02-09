@@ -21,7 +21,7 @@ PROJECT_NAME = "pc"
 PACKAGE_NAME = ".".join([BASE_PROJECT_NAME, "plugins", PROJECT_NAME])
 
 setup(name=PROJECT_NAME,
-      version="0.2.4",
+      version="0.2.5",
       description="AFT plugin for PC-like devices",
       author="Igor Stoppa",
       author_email="igor.stoppa@intel.com",
