@@ -1,5 +1,8 @@
+* Tue Feb 10 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.6
+- Switch to Periphreal Emulator for selecting target state.
+
 * Mon Feb 09 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.5
-- Enchance target state descriptor.
+- Enhance target state descriptor.
 
 * Fri Feb 06 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.4
 - Fix typos.
