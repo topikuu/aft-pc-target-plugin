@@ -12,7 +12,7 @@
 
 Name:       aft-pc-target-plugin
 Summary:    AFT plugin for PC-like devices
-Version:    0.2.5
+Version:    0.2.6
 Release:    1
 Group:      Development/Tools
 License:    GPL-2.0

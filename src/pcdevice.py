@@ -208,6 +208,10 @@ class PCDevice(Device):
         # Somehow sometimes it gets stuck. Try 3 more times. Total 5.
         for _ in range(2):
             self._power_cycle()
+            pem_main(["pem",
+                      "--interface", self.pem_interface,
+                      "--port", self.pem_port,
+                      "--playback", mode["sequence"]])
             logging.info("Checking for device in mode \"{0}\" ."
                          .format(mode["name"]))
             if self._wait_for_mode(mode=mode):
