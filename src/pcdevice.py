@@ -65,6 +65,8 @@ class PCDevice(Device):
             device_descriptor["catalog_entry"]["test_mode_keystrokes"]
         self._service_mode["sequence"] = \
             device_descriptor["catalog_entry"]["service_mode_keystrokes"]
+        self._target_device = \
+            device_descriptor["catalog_entry"]["target_device"]
 
     @classmethod
     def get_registered_leases(cls):
@@ -208,6 +210,11 @@ class PCDevice(Device):
         # Somehow sometimes it gets stuck. Try 3 more times. Total 5.
         for _ in range(2):
             self._power_cycle()
+            logging.debug("Going to execute:\n" +
+			  "pem" +
+                          " --interface {0}".format(self.pem_interface) +
+                          " --port {0}".format(self.pem_port) +
+                          " --playback {0}".format(mode["sequence"]))
             pem_main(["pem",
                       "--interface", self.pem_interface,
                       "--port", self.pem_port,
@@ -229,6 +236,7 @@ class PCDevice(Device):
         """
         Writes image into the internal storage of the device.
         """
+        time.sleep(7)
         logging.info("Testing for availability of image {0} ."
                      .format(nfs_file_name))
         result = self.execute(
@@ -245,7 +253,7 @@ class PCDevice(Device):
         logging.info("Writing image {0} to internal storage."
                      .format(nfs_file_name))
         result = self.execute(command=("bmaptool", "copy", nfs_file_name,
-                                       "/dev/sdb"),
+                                       self._target_device),
                               timeout=self._SSH_IMAGE_WRITING_TIMEOUT,)
         if result or result is None:
             logging.info("Image written successfully.")
@@ -259,10 +267,11 @@ class PCDevice(Device):
         Copy ssh public key to root user on the target device.
         """
         # update info about the partition table
-        self.execute(command=("partprobe", "/dev/sdb"),
+        self.execute(command=("partprobe", self._target_device),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         logging.info("Copying ssh public key to internal storage.")
-        if self.execute(command=("mount", self._root_partition,
+        if self.execute(command=("mount",
+                                 self._target_device + self._root_partition,
                                  "/mnt/sdb_root"),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed mounting internal storage.")
