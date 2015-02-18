@@ -47,8 +47,8 @@ class PCDevice(Device):
                           format(init_data))
             cls._leases_file_name = init_data["leases_file_name"]
             cls._root_partition = init_data["root_partition"]
-            cls._service_mode = {"name": init_data["service_mode"], "sequence":0}
-            cls._test_mode = {"name": init_data["test_mode"], "sequence":0}
+            cls._service_mode_name = init_data["service_mode"]
+            cls._test_mode_name = init_data["test_mode"]
             return Ssh.init() and Scp.init()
         except KeyError as error:
             logging.critical("Error initializing PC Device Class {0}."
@@ -61,10 +61,14 @@ class PCDevice(Device):
                                        channel=channel)
         self.pem_interface = device_descriptor["pem_interface"]
         self.pem_port = device_descriptor["pem_port"]
-        self._test_mode["sequence"] = \
-            device_descriptor["catalog_entry"]["test_mode_keystrokes"]
-        self._service_mode["sequence"] = \
-            device_descriptor["catalog_entry"]["service_mode_keystrokes"]
+        self._test_mode = {
+            "name": self._test_mode_name,
+            "sequence": device_descriptor["catalog_entry"]
+                                         ["test_mode_keystrokes"]}
+        self._service_mode = {
+            "name": self._service_mode_name,
+            "sequence": device_descriptor["catalog_entry"]
+                                         ["service_mode_keystrokes"]}
         self._target_device = \
             device_descriptor["catalog_entry"]["target_device"]
 
@@ -117,27 +121,24 @@ class PCDevice(Device):
 
         return retval is not False and mode["name"] in retval
 
-    @classmethod
-    def by_ip_is_in_service_mode(cls, dev_ip):
+    def by_ip_is_in_service_mode(self, dev_ip):
         """
         Check if the device is in service mode.
         """
-        return cls._by_ip_is_ready(dev_ip=dev_ip, mode=cls._service_mode)
+        return self._by_ip_is_ready(dev_ip=dev_ip, mode=self._service_mode)
 
-    @classmethod
-    def by_ip_is_in_test_mode(cls, dev_ip):
+    def by_ip_is_in_test_mode(self, dev_ip):
         """
         Check if the device is in service mode.
         """
-        return cls._by_ip_is_ready(dev_ip=dev_ip, mode=cls._test_mode)
+        return self._by_ip_is_ready(dev_ip=dev_ip, mode=self._test_mode)
 
-    @classmethod
-    def _by_ip_is_responsive(cls, dev_ip):
+    def _by_ip_is_responsive(self, dev_ip):
         """
         Check if the device is in service mode.
         """
-        return cls.by_ip_is_in_test_mode(dev_ip) or \
-            cls.by_ip_is_in_service_mode(dev_ip)
+        return self.by_ip_is_in_test_mode(dev_ip) or \
+            self.by_ip_is_in_service_mode(dev_ip)
 
     def _is_ready(self, mode):
         """

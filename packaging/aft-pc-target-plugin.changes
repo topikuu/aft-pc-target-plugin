@@ -1,3 +1,6 @@
+* Wed Feb 18 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.8
+- Fix bug for collapsing key sequences.
+
 * Mon Feb 16 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.7
 - Turn the target device into a parameter.
 
