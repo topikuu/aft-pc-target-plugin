@@ -1,3 +1,6 @@
+* Tue Feb 24 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.9
+- Rename mount point from sdb_root to target_root.
+
 * Wed Feb 18 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.8
 - Fix bug for collapsing key sequences.
 
