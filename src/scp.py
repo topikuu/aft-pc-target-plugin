@@ -45,7 +45,7 @@ class Scp(Ssl):
         """
         Copy a file to the DUT.
         """
-        return super(Scp, cls)._run(
+        super(Scp, cls)._run(
             parms=cls._default_parms +
             (source, user + "@" + dev_ip + ":" + destination,),
             timeout=timeout)

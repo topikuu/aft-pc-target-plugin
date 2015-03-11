@@ -238,6 +238,10 @@ class PCDevice(Device):
         Writes image into the internal storage of the device.
         """
         time.sleep(7)
+	self.execute(
+            command=("/usr/bin/mount", "/mnt/img_data_nfs"),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
+        )
         logging.info("Testing for availability of image {0} ."
                      .format(nfs_file_name))
         result = self.execute(
@@ -253,8 +257,8 @@ class PCDevice(Device):
             return False
         logging.info("Writing image {0} to internal storage."
                      .format(nfs_file_name))
-        result = self.execute(command=("bmaptool", "copy", nfs_file_name,
-                                       self._target_device),
+        result = self.execute(command=("bmaptool", "copy", "--nobmap",
+                                       nfs_file_name, self._target_device),
                               timeout=self._SSH_IMAGE_WRITING_TIMEOUT,)
         if result or result is None:
             logging.info("Image written successfully.")
@@ -280,12 +284,17 @@ class PCDevice(Device):
         # Ignore return value: directory might exist
         self.execute(command=("mkdir", "/mnt/target_root/root/.ssh"),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        self.execute(command=("chmod", "700", "/mnt/target_root/root/.ssh"),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         if self.execute(command=("cat", "/root/.ssh/authorized_keys",
-                                 ">>", "/mnt/target_root/root/" +
-                                 ".ssh/authorized_keys"),
+                                  ">>", "/mnt/target_root/root/" +
+                                  ".ssh/authorized_keys"),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed writing public key to device.")
             return False
+        self.execute(command=("chmod", "600",
+                              "/mnt/target_root/root/.ssh/authorized_keys"),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         if self.execute(command=("sync",),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed flushing internal storage.")
