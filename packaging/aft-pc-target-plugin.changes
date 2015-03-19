@@ -1,3 +1,7 @@
+* Thu Mar 19 2015 Igor Stoppa <igor.stoppa@intel.com> 0.3.0
+- Add verbosity settings to commands.
+- Set the default user to "tester".
+
 * Wed Mar 11 2015 Igor Stoppa <igor.stoppa@intel.com> 0.2.10
 - Drop the requirement for a bmap file.
 - Make the root ssh key accessible only to root.

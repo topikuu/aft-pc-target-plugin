@@ -57,8 +57,8 @@ class Ssh(Ssl):
 
 # pylint: disable=too-many-arguments
     @classmethod
-    def execute(cls, dev_ip, timeout=-1,
-                command=(), environment=(), user="root"):
+    def execute(cls, dev_ip, timeout=-1, command=(),
+                environment=(), user="root", verbose=False):
         """
         Executes ssh with custom parameters.
         """
@@ -66,6 +66,7 @@ class Ssh(Ssl):
                                     (user + "@" + str(dev_ip),) +
                                     Ssh._get_proxy_settings() +
                                     environment +
-                                    command, timeout=timeout)
+                                    command, timeout=timeout,
+                                    verbose=verbose)
 # pylint: enable=too-many-arguments
 # pylint: enable=no-init

@@ -248,7 +248,9 @@ class PCDevice(Device):
             command=("[", "-f", nfs_file_name, "]", "&&",
                      "echo", "found", "||", "echo", "missing"),
             timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
+            verbose=True,
         )
+        logging.info(result)
         if "found" in result:
             logging.info("Image found.")
         else:
@@ -339,17 +341,19 @@ class PCDevice(Device):
             return False
         return self._enter_mode(self._service_mode) and \
             self._write_image(nfs_file_name=os.path.abspath(file_name).
-                              replace("home/jenkins", "mnt/img_data_nfs")) and \
+                              replace("home/tester", "mnt/img_data_nfs")) and \
             self._install_tester_public_key() and \
             self._enter_mode(self._test_mode) and \
             self._confirm_image(file_name)
 
-    def execute(self, command, timeout, environment=(), user="root"):
+    def execute(self, command, timeout, environment=(),
+                user="root", verbose=False):
         """
         Runs a command on the device and returns log and errorlevel.
         """
         return Ssh.execute(dev_ip=self.get_registered_lease(), timeout=timeout,
-                           user=user, environment=environment, command=command)
+                           user=user, environment=environment, command=command,
+                           verbose=verbose)
 
     def push(self, source, destination, user="root"):
         """
