@@ -37,6 +37,8 @@ class PCDevice(Device):
     _SSH_SHORT_GENERIC_TIMEOUT = 10
     _SSH_IMAGE_WRITING_TIMEOUT = 720
 
+    _ROOT_PARTITION_MOUNT_POINT = "/mnt/target_root/"
+
     @classmethod
     def init_class(cls, init_data):
         """
@@ -279,29 +281,36 @@ class PCDevice(Device):
         logging.info("Copying ssh public key to internal storage.")
         if self.execute(command=("mount",
                                  self._target_device + self._root_partition,
-                                 "/mnt/target_root"),
+                                 self._ROOT_PARTITION_MOUNT_POINT),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed mounting internal storage.")
             return False
         # Ignore return value: directory might exist
-        self.execute(command=("mkdir", "/mnt/target_root/root/.ssh"),
+        self.execute(command=("mkdir",
+                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                           "root/.ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        self.execute(command=("chmod", "700", "/mnt/target_root/root/.ssh"),
+        self.execute(command=("chmod", "700", 
+                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                           "root/.ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         if self.execute(command=("cat", "/root/.ssh/authorized_keys",
-                                  ">>", "/mnt/target_root/root/" +
+                                 ">>",
+                                 os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                              "root/") +
                                   ".ssh/authorized_keys"),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed writing public key to device.")
             return False
         self.execute(command=("chmod", "600",
-                              "/mnt/target_root/root/.ssh/authorized_keys"),
+                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                           "root/.ssh/authorized_keys")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         if self.execute(command=("sync",),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed flushing internal storage.")
             return False
-        if self.execute(command=("umount", "/mnt/target_root"),
+        if self.execute(command=("umount", self._ROOT_PARTITION_MOUNT_POINT),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed unmounting internal storage.")
             return False
