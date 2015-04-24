@@ -344,7 +344,7 @@ class PCDevice(Device):
             # The string expected is in the format:
             # "BUILD_ID=xxxxx\n"
             # and we want to match the xxxxxx against file_name
-            if build_id_row.split("=")[1].strip() in file_name:
+            if file_name.split(".")[0] in build_id_row.split("=")[1].strip():
                 return True
         except (AttributeError, IndexError) as error:
             logging.warn("Error: {0}\n".format(error))
