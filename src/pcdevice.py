@@ -36,7 +36,7 @@ class PCDevice(Device):
     _POWER_CYCLE_DELAY = 10
     _SSH_SHORT_GENERIC_TIMEOUT = 10
     _SSH_IMAGE_WRITING_TIMEOUT = 720
-
+    _IMG_NFS_MOUNT_POINT = "/mnt/img_data_nfs"
     _ROOT_PARTITION_MOUNT_POINT = "/mnt/target_root/"
 
     @classmethod
@@ -241,7 +241,7 @@ class PCDevice(Device):
         """
         time.sleep(7)
 	self.execute(
-            command=("/usr/bin/mount", "/mnt/img_data_nfs"),
+            command=("/usr/bin/mount", self._IMG_NFS_MOUNT_POINT),
             timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
         )
         logging.info("Testing for availability of image {0} ."
@@ -344,13 +344,14 @@ class PCDevice(Device):
         # NOTE: it is expected that the image is located somewhere
         # underneath /home/jenkins therefore symlinks probably will not work
         # The /home/jenkins path is exported as nfs and mounted remotely as
-        # /mnt/img_data_nfs
+        # _IMG_NFS_MOUNT_POINT
         if not os.path.isfile(file_name):
             logging.critical("File not found.\n{0}".format(file_name))
             return False
         return self._enter_mode(self._service_mode) and \
             self._write_image(nfs_file_name=os.path.abspath(file_name).
-                              replace("home/tester", "mnt/img_data_nfs")) and \
+                              replace("home/tester",
+                                      self._IMG_NFS_MOUNT_POINT)) and \
             self._install_tester_public_key() and \
             self._enter_mode(self._test_mode) and \
             self._confirm_image(file_name)
