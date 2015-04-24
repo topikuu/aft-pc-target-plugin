@@ -285,26 +285,42 @@ class PCDevice(Device):
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed mounting internal storage.")
             return False
+        # Identify the home of the root user
+        root_user_home =  \
+            self.execute(command=("cat",
+                                  os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                               "etc/passwd"), "|",
+                                  "grep", "-e", '"^root"', "|",
+                                  "sed", "-e" '"s/root:.*:root://"', "|",
+                                  "sed", "-e" '"s/:.*//"'),
+                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if root_user_home is False:
+            logging.critical("Failed to identify the home of the root user.")
+            return False
+        else:
+            root_user_home = root_user_home.rstrip().strip("/")
         # Ignore return value: directory might exist
         self.execute(command=("mkdir",
                               os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           "root/.ssh")),
+                                           root_user_home, ".ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         self.execute(command=("chmod", "700", 
                               os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           "root/.ssh")),
+                                           root_user_home, ".ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        # replicate the public key used for logging in as root
         if self.execute(command=("cat", "/root/.ssh/authorized_keys",
                                  ">>",
                                  os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                              "root/") +
-                                  ".ssh/authorized_keys"),
+                                              root_user_home,
+                                              ".ssh/authorized_keys")),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
             logging.critical("Failed writing public key to device.")
             return False
         self.execute(command=("chmod", "600",
                               os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           "root/.ssh/authorized_keys")),
+                                           root_user_home,
+                                           ".ssh/authorized_keys")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         if self.execute(command=("sync",),
                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
