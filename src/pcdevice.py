@@ -51,6 +51,7 @@ class PCDevice(Device):
             cls._root_partition = init_data["root_partition"]
             cls._service_mode_name = init_data["service_mode"]
             cls._test_mode_name = init_data["test_mode"]
+            cls._registered_lease = None
             return Ssh.init() and Scp.init()
         except KeyError as error:
             logging.critical("Error initializing PC Device Class {0}."
@@ -75,7 +76,7 @@ class PCDevice(Device):
             device_descriptor["catalog_entry"]["target_device"]
 
     @classmethod
-    def get_registered_leases(cls):
+    def get_all_registered_leases(cls):
         """
         Returns all the current leases.
         """
@@ -83,33 +84,35 @@ class PCDevice(Device):
             return leases_file.readlines()
 
     @classmethod
-    def get_registered_lease_by_mac(cls, mac):
+    def get_registered_leases_by_mac(cls, mac):
         """
         Returns the leased ip for a specific mac.
         """
-        for lease in cls.get_registered_leases():
+        leased_ips = []
+        for lease in cls.get_all_registered_leases():
             requestor_mac, leased_ip = lease.split()[1:3]
             if requestor_mac == mac:
                 logging.info("Found device with MAC {0}".format(mac) +
                              " and IP {0}".format(leased_ip))
-                return leased_ip
-        logging.critical("Not found any IP lease for device with"
-                         "MAC {0}".format(mac))
-        return None
+                leased_ips.append(leased_ip)
+        if len(leased_ips) is 0:
+            logging.critical("Not found any IP lease for device with"
+                             "MAC {0}".format(mac))
+        return leased_ips
 
-    def get_registered_lease(self):
+    def get_registered_leases(self):
         """
         Returns the leased ip of the current device.
         """
-        return self.get_registered_lease_by_mac(mac=self.dev_id)
+        return self.get_registered_leases_by_mac(mac=self.dev_id)
 
     @classmethod
-    def _by_ip_is_ready(cls, dev_ip, mode):
+    def _by_ip_is_in_mode(cls, dev_ip, mode):
         """
         Check if the device with given ip is responsive to ssh
         and in the specified mode.
         """
-        logging.debug("Trying to ssh into {0} .".format(dev_ip))
+        logging.debug("Trying to ssh into {0} to test the mode.".format(dev_ip))
         retval = Ssh.execute(dev_ip=dev_ip,
                              command=("cat", "/proc/version", "|",
                                       "grep", mode["name"]),
@@ -127,47 +130,59 @@ class PCDevice(Device):
         """
         Check if the device is in service mode.
         """
-        return self._by_ip_is_ready(dev_ip=dev_ip, mode=self._service_mode)
+        return self._by_ip_is_in_mode(dev_ip=dev_ip, mode=self._service_mode)
 
     def by_ip_is_in_test_mode(self, dev_ip):
         """
+        Check if the device is in test mode.
+        """
+        return self._by_ip_is_in_mode(dev_ip=dev_ip, mode=self._test_mode)
+
+    @classmethod
+    def _by_ip_is_responsive(cls, dev_ip):
+        """
         Check if the device is in service mode.
         """
-        return self._by_ip_is_ready(dev_ip=dev_ip, mode=self._test_mode)
+        logging.debug("Trying to ssh into {0}.".format(dev_ip))
+        retval = Ssh.execute(dev_ip=dev_ip,
+                             command=("echo", "$?"),
+                             timeout=cls._SSH_SHORT_GENERIC_TIMEOUT, )
+        if retval is False:
+            logging.debug("Ssh failed.")
+        else:
+            logging.debug("Ssh successful.")
+        return retval
 
-    def _by_ip_is_responsive(self, dev_ip):
-        """
-        Check if the device is in service mode.
-        """
-        return self.by_ip_is_in_test_mode(dev_ip) or \
-            self.by_ip_is_in_service_mode(dev_ip)
-
-    def _is_ready(self, mode):
+    def _is_in_mode(self, mode):
         """
         Check if the device is responsive to ssh
         and in specified mode.
         """
-        return self._by_ip_is_ready(mode=mode,
+        return self._by_ip_is_in_mode(mode=mode,
                                     dev_ip=self.get_registered_lease())
 
     def is_in_service_mode(self):
         """
         Check if the device is in service mode.
         """
-        return self._is_ready(mode=self._service_mode)
+        return self._is_in_mode(mode=self._service_mode)
 
     def is_in_test_mode(self):
         """
         Check if the device is in service mode.
         """
-        return self._is_ready(mode=self._test_mode)
+        return self._is_in_mode(mode=self._test_mode)
 
     def _is_responsive(self):
         """
         Check if the device is responsive to ssh
         and in specified mode.
         """
-        return self._by_ip_is_responsive(dev_ip=self.get_registered_lease())
+        leases = self.get_registered_leases()
+        for lease in leases:
+            if self._by_ip_is_responsive(dev_ip=lease):
+                return lease
+        return None
 
     def _power_cycle(self):
         """
@@ -186,14 +201,15 @@ class PCDevice(Device):
 
     def _wait_for_mode(self, mode):
         """
-        For a limited amount of time, try to assess that the device
-        is in the mode specified.
+        For a limited amount of time, try to assess if the device
+        is in the mode requested.
         """
-        logging.info("Check if device {0} is in mode {1} ."
-                     .format(self.get_registered_lease(), mode["name"]))
+        logging.info("Check if device is in mode {0} .".format(mode["name"]))
         for _ in range(self._MODE_TEST_TIMEOUT / self._POLLING_INTERVAL):
-            if self._is_responsive():
-                return self._is_ready(mode=mode)
+            responsive_ip = self._is_responsive()
+            if responsive_ip is not None:
+                self._registered_lease = responsive_ip
+                return self._by_ip_is_in_mode(mode=mode, dev_ip=responsive_ip)
             else:
                 logging.info("Device not responding - waiting {0} seconds."
 			     .format(self._POLLING_INTERVAL))
@@ -206,11 +222,7 @@ class PCDevice(Device):
         """
         Tries to put the device into the specified mode.
         """
-        # Attempts twice: in the worst case the device boots
-        # first in test mode, so a further power cycle is needed,
-        # to get the device in service mode.
-        # That was the theory - here's how it is in practice:
-        # Somehow sometimes it gets stuck. Try 3 more times. Total 5.
+        # Attempts twice but one should be sufficient.
         for _ in range(2):
             self._power_cycle()
             logging.debug("Going to execute:\n" +
@@ -229,7 +241,7 @@ class PCDevice(Device):
                              .format(mode["name"]))
                 return True
             else:
-                logging.info("Devince in mode \"{0}\" was not found."
+                logging.info("Device in mode \"{0}\" was not found."
                              .format(mode["name"]))
         logging.critical("Unable to get device {0} in mode \"{1}.\""
                          .format(self.dev_id, mode["name"]))
@@ -240,7 +252,7 @@ class PCDevice(Device):
         Writes image into the internal storage of the device.
         """
         time.sleep(7)
-	self.execute(
+        self.execute(
             command=("/usr/bin/mount", self._IMG_NFS_MOUNT_POINT),
             timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
         )
@@ -304,7 +316,7 @@ class PCDevice(Device):
                               os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
                                            root_user_home, ".ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        self.execute(command=("chmod", "700", 
+        self.execute(command=("chmod", "700",
                               os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
                                            root_user_home, ".ssh")),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
@@ -358,26 +370,35 @@ class PCDevice(Device):
         Method for writing an image to a device.
         """
         # NOTE: it is expected that the image is located somewhere
-        # underneath /home/jenkins therefore symlinks probably will not work
-        # The /home/jenkins path is exported as nfs and mounted remotely as
+        # underneath /home/testeri, therefore symlinks outside of it
+        # will not work
+        # The /home/tester path is exported as nfs and mounted remotely as
         # _IMG_NFS_MOUNT_POINT
         if not os.path.isfile(file_name):
-            logging.critical("File not found.\n{0}".format(file_name))
-            return False
-        return self._enter_mode(self._service_mode) and \
-            self._write_image(nfs_file_name=os.path.abspath(file_name).
-                              replace("home/tester",
-                                      self._IMG_NFS_MOUNT_POINT)) and \
-            self._install_tester_public_key() and \
-            self._enter_mode(self._test_mode) and \
-            self._confirm_image(file_name)
+            logging.critical("Test file {0} not found.".format(file_name))
+        elif not self._enter_mode(self._service_mode):
+            logging.critical("Could not put device in service mode.")
+        elif not self._write_image(nfs_file_name=
+                                   os.path.abspath(file_name).
+                                     replace("home/tester",
+                                             self._IMG_NFS_MOUNT_POINT)):
+            logging.critical("Could not write image to storage.")
+        elif not self._install_tester_public_key():
+            logging.critical("Could not install tester public key.")
+        elif not self._enter_mode(self._test_mode):
+            logging.critical("Could not enter test mode.")
+        elif not self._confirm_image(file_name):
+            logging.critical("Could not confirm image.")
+        else:
+            return True
+        return False
 
     def execute(self, command, timeout, environment=(),
                 user="root", verbose=False):
         """
         Runs a command on the device and returns log and errorlevel.
         """
-        return Ssh.execute(dev_ip=self.get_registered_lease(), timeout=timeout,
+        return Ssh.execute(dev_ip=self._registered_lease, timeout=timeout,
                            user=user, environment=environment, command=command,
                            verbose=verbose)
 
@@ -385,5 +406,5 @@ class PCDevice(Device):
         """
         Deploys a file from the local filesystem to the device (remote).
         """
-        return Scp.push(self.get_registered_lease(),
-                        source=source, destination=destination, user=user)
+        return Scp.push(self._registered_lease, source=source,
+                        destination=destination, user=user)
