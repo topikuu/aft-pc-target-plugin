@@ -1,3 +1,6 @@
+* Fri May 08 2015 Igor Stoppa <igor.stoppa@intel.com> 0.4.0
+- Support retcode, stdout and stderr for commands.
+
 * Wed Apr 29 2015 Igor Stoppa <igor.stoppa@intel.com> 0.3.2
 - Cope with changes of IP due to unique names.
 

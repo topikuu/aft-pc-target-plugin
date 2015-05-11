@@ -1,4 +1,4 @@
-# Copyright (c) 2013-14 Intel, Inc.
+# Copyright (c) 2013, 2014, 2015 Intel, Inc.
 # Author igor.stoppa@intel.com
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -17,6 +17,7 @@ Class representing a PC-like Device with an IP.
 import os
 import time
 import logging
+import sys
 
 from aft.device import Device
 from aft.plugins.pc.ssh import Ssh
@@ -117,14 +118,16 @@ class PCDevice(Device):
                              command=("cat", "/proc/version", "|",
                                       "grep", mode["name"]),
                              timeout=cls._SSH_SHORT_GENERIC_TIMEOUT, )
-        if retval is False:
+        if retval is None or retval.returncode is not 0:
             logging.debug("Ssh failed.")
-        elif mode["name"] not in retval:
+        elif mode["name"] not in retval.stdoutdata:
             logging.debug("Device not in \"{0}\" mode.".format(mode["name"]))
         else:
             logging.debug("Device in \"{0}\" mode.".format(mode["name"]))
 
-        return retval is not False and mode["name"] in retval
+        return retval is not None and \
+               retval.returncode is 0 and \
+               mode["name"] in retval.stdoutdata
 
     def by_ip_is_in_service_mode(self, dev_ip):
         """
@@ -144,14 +147,15 @@ class PCDevice(Device):
         Check if the device is in service mode.
         """
         logging.debug("Trying to ssh into {0}.".format(dev_ip))
-        retval = Ssh.execute(dev_ip=dev_ip,
+        result = Ssh.execute(dev_ip=dev_ip,
                              command=("echo", "$?"),
                              timeout=cls._SSH_SHORT_GENERIC_TIMEOUT, )
-        if retval is False:
+        logging.debug("result: {0}".format(result))
+        if (result is None) or (result.returncode is not 0):
             logging.debug("Ssh failed.")
         else:
             logging.debug("Ssh successful.")
-        return retval
+        return (result is not None) and (result.returncode is 0)
 
     def _is_in_mode(self, mode):
         """
@@ -252,10 +256,14 @@ class PCDevice(Device):
         Writes image into the internal storage of the device.
         """
         time.sleep(7)
-        self.execute(
+        logging.info("Mounting the nfs containing the image to flash.")
+	result = self.execute(
             command=("/usr/bin/mount", self._IMG_NFS_MOUNT_POINT),
             timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
         )
+        if result is None:
+            logging.critical("Failed to interact with the device.")
+            return False
         logging.info("Testing for availability of image {0} ."
                      .format(nfs_file_name))
         result = self.execute(
@@ -265,7 +273,7 @@ class PCDevice(Device):
             verbose=True,
         )
         logging.info(result)
-        if "found" in result:
+        if result is not None and "found" in result.stdoutdata:
             logging.info("Image found.")
         else:
             logging.critical("Image \"{0}\" not found."
@@ -276,7 +284,7 @@ class PCDevice(Device):
         result = self.execute(command=("bmaptool", "copy", "--nobmap",
                                        nfs_file_name, self._target_device),
                               timeout=self._SSH_IMAGE_WRITING_TIMEOUT,)
-        if result or result is None:
+        if result is not None and result.returncode is 0:
             logging.info("Image written successfully.")
             return True
         else:
@@ -291,55 +299,70 @@ class PCDevice(Device):
         self.execute(command=("partprobe", self._target_device),
                      timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
         logging.info("Copying ssh public key to internal storage.")
-        if self.execute(command=("mount",
-                                 self._target_device + self._root_partition,
-                                 self._ROOT_PARTITION_MOUNT_POINT),
-                        timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
-            logging.critical("Failed mounting internal storage.")
-            return False
+        result = self.execute(
+            command=("mount", self._target_device + self._root_partition,
+                     self._ROOT_PARTITION_MOUNT_POINT),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
+            logging.critical("Failed mounting internal storage.\n{0}"
+                             .format(result))
+#            return False
         # Identify the home of the root user
-        root_user_home =  \
-            self.execute(command=("cat",
-                                  os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                               "etc/passwd"), "|",
-                                  "grep", "-e", '"^root"', "|",
-                                  "sed", "-e" '"s/root:.*:root://"', "|",
-                                  "sed", "-e" '"s/:.*//"'),
-                         timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        if root_user_home is False:
+        result = self.execute(
+            command=("cat",
+                     os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                  "etc/passwd"), "|",
+                     "grep", "-e", '"^root"', "|",
+                     "sed", "-e" '"s/root:.*:root://"', "|",
+                     "sed", "-e" '"s/:.*//"'),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
             logging.critical("Failed to identify the home of the root user.")
             return False
         else:
-            root_user_home = root_user_home.rstrip().strip("/")
+            root_user_home = result.stdoutdata.rstrip().strip("/")
         # Ignore return value: directory might exist
-        self.execute(command=("mkdir",
-                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           root_user_home, ".ssh")),
-                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        self.execute(command=("chmod", "700",
-                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           root_user_home, ".ssh")),
-                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        result = self.execute(
+            command=("mkdir", os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                     root_user_home, ".ssh")),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None:
+            logging.critical("Failed to ssh into the device.")
+        elif result.returncode is not 0:
+            logging.info(".ssh directory already present for root user.")
+        result = self.execute(
+            command=("chmod", "700",
+                     os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                     root_user_home, ".ssh")),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None:
+            logging.critical("Failed to ssh into the device.")
         # replicate the public key used for logging in as root
-        if self.execute(command=("cat", "/root/.ssh/authorized_keys",
-                                 ">>",
-                                 os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                              root_user_home,
-                                              ".ssh/authorized_keys")),
-                        timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
-            logging.critical("Failed writing public key to device.")
+        result = self.execute(
+            command=("cat", "/root/.ssh/authorized_keys", ">>",
+                     os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                     root_user_home, ".ssh/authorized_keys")),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
+            logging.critical("Failed writing the public key to the device.")
             return False
-        self.execute(command=("chmod", "600",
-                              os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
-                                           root_user_home,
-                                           ".ssh/authorized_keys")),
-                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        if self.execute(command=("sync",),
-                        timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
+        result = self.execute(
+            command=("chmod", "600",
+                     os.path.join(self._ROOT_PARTITION_MOUNT_POINT,
+                                  root_user_home, ".ssh/authorized_keys")),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None:
+            logging.critical("Failed to ssh into the device.")
+            return False
+        result = self.execute(
+            command=("sync",), timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
             logging.critical("Failed flushing internal storage.")
             return False
-        if self.execute(command=("umount", self._ROOT_PARTITION_MOUNT_POINT),
-                        timeout=self._SSH_SHORT_GENERIC_TIMEOUT, ) is False:
+        result = self.execute(
+            command=("umount", self._ROOT_PARTITION_MOUNT_POINT),
+            timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
             logging.critical("Failed unmounting internal storage.")
             return False
         logging.info("Public key written successfully to device.")
@@ -350,9 +373,13 @@ class PCDevice(Device):
         Confirm that the image booted is the one the one received.
         """
         try:
-            build_id_row = self.execute(
+            result = self.execute(
                 command=("cat", "/etc/os-release", "|", "grep", "BUILD_ID"),
                 timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+            if result is None or result.returncode is not 0:
+                logging.critical("Failed locating the BUILD_ID value")
+                return False
+            build_id_row = result.stdoutdata
             # The string expected is in the format:
             # "BUILD_ID=xxxxx\n"
             # and we want to match the xxxxxx against file_name
@@ -387,9 +414,10 @@ class PCDevice(Device):
             logging.critical("Could not install tester public key.")
         elif not self._enter_mode(self._test_mode):
             logging.critical("Could not enter test mode.")
-        elif not self._confirm_image(file_name):
-            logging.critical("Could not confirm image.")
+#        elif not self._confirm_image(file_name):
+#            logging.critical("Could not confirm image.")
         else:
+            logging.info("Image {0} written.".format(file_name))
             return True
         return False
 
