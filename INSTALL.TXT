@@ -1,0 +1,73 @@
+Building and Installing
+=======================
+
+Home Page
+---------
+The project is hosted on the website of the Intel Open Source Technology
+Center, 01.org :  http://01.org/AFT
+Note: this package is not intended to be installed directly, rather it
+should be pulled in as dependency from other components.
+
+
+Premise
+-------
+The SW has been tested with OpenSUSE 13.2 64 bits.
+Other distros should work equally well, since the code is 100% python, but
+they are not confirmed.
+For example, some issues might arise with the packaging, when using Other
+distros still based on rpms, because they might have different naming and/or
+breakdown of the dependency.
+
+
+Configuring and installing from rpm repository
+----------------------------------------------
+To use the ready-made packages, add and enable the rpm repo:
+[XXX placeholder to download area from 01.org]
+
+
+Installing from sources
+-----------------------
+For the latest version of the SW, check the proejct page on github:
+https://github.com/01org-AutomatedFlasherTester/aft-pc-plugin
+For creating (s)rpms packages, please refer to [XXX placeholder]
+Alternatively, on non-rpm distros, it is possible to install by using directly
+the setup.py file in the root directory of the repo.
+
+
+
+Setting up the test harness
+---------------------------
+This plugin relies on 2 system services that must be configured:
+
+
+* dnsmasquerade
+It must be setup to provide DNS and DHCP services on a specific port, used
+to create a local network between the testing harness and all the DUTs.
+The testing harness can be optionally configured (through iptables) to be also
+the gateway for the DUTs, by setting up rules for IP masquerading.
+It is _very_ important to limit the DHCP server exclusively to the port(s) used
+for the local network(s) with the DUT, to avoid introducing a rogue DHCP server
+in the primary network used by the test harness.
+The default config file provided by dnsmasq is already very explicative, but
+further help can be found from the manpage of the service.
+
+http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
+
+
+* nfs server
+The home directory of the linux user that will run the test cases must be shared
+over the local network, so that the DUTs can access the test images.
+The nfs share can be configured following the instructions from:
+
+https://help.ubuntu.com/community/SettingUpNFSHowTo
+
+The default user is "tester" - Example of /etc/exports :
+
+   /home/tester    *(crossmnt,ro,root_squash,sync,no_subtree_check)
+Other locations/users are possible, but this will require patching the tester and
+the /etc/fstab file in the support OS.
+
+
+In both cases, it's a recommended to configure both services to start
+automatically at the boot of the testing harness, so to avoid downtime of the 
+tester due to a reboot.
