@@ -163,7 +163,7 @@ class PCDevice(Device):
         and in specified mode.
         """
         return self._by_ip_is_in_mode(mode=mode,
-                                    dev_ip=self.get_registered_lease())
+                                    dev_ip=self.get_registered_leases())
 
     def is_in_service_mode(self):
         """
@@ -219,7 +219,7 @@ class PCDevice(Device):
 			     .format(self._POLLING_INTERVAL))
                 time.sleep(self._POLLING_INTERVAL)
         logging.info("Device {0} is not in mode {1} ."
-                     .format(self.get_registered_lease(), mode["name"]))
+                     .format(self.get_registered_leases(), mode["name"]))
         return False
 
     def _enter_mode(self, mode):
