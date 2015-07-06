@@ -258,7 +258,7 @@ class PCDevice(Device):
         time.sleep(7)
         logging.info("Mounting the nfs containing the image to flash.")
 	result = self.execute(
-            command=("/usr/bin/mount", self._IMG_NFS_MOUNT_POINT),
+            command=("mount", self._IMG_NFS_MOUNT_POINT),
             timeout=self._SSH_SHORT_GENERIC_TIMEOUT,
         )
         if result is None:
