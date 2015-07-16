@@ -1,3 +1,7 @@
+* Thu Jul 16 2015 Igor Stoppa <igor.stoppa@intel.com> 0.4.2
+- Fix typo in call to method for obatining list of leases.
+- Do not use absolute path for mount command.
+
 * Mon May 25 2015 Igor Stoppa <igor.stoppa@intel.com> 0.4.1
 - Added documentation.
 
