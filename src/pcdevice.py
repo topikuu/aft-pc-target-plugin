@@ -39,6 +39,7 @@ class PCDevice(Device):
     _SSH_IMAGE_WRITING_TIMEOUT = 720
     _IMG_NFS_MOUNT_POINT = "/mnt/img_data_nfs"
     _ROOT_PARTITION_MOUNT_POINT = "/mnt/target_root/"
+    _SUPER_ROOT_PARTITION_MOUNT_POINT = "/mnt/super_target_root/"
 
     @classmethod
     def init_class(cls, init_data):
@@ -75,6 +76,11 @@ class PCDevice(Device):
                                          ["service_mode_keystrokes"]}
         self._target_device = \
             device_descriptor["catalog_entry"]["target_device"]
+        self._uses_hddimg = \
+            device_descriptor["catalog_entry"]["uses_hddimg"]
+        if self._uses_hddimg:
+            self._rootfs_filename = \
+                device_descriptor["catalog_entry"]["rootfs_filename"]
 
     @classmethod
     def get_all_registered_leases(cls):
@@ -291,14 +297,8 @@ class PCDevice(Device):
             logging.critical("Error while writing image to device.")
             return False
 
-    def _install_tester_public_key(self):
-        """
-        Copy ssh public key to root user on the target device.
-        """
-        # update info about the partition table
-        self.execute(command=("partprobe", self._target_device),
-                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
-        logging.info("Copying ssh public key to internal storage.")
+    def _mount_single_layer(self):
+        logging.info("mount one layer")
         result = self.execute(
             command=("mount", self._target_device + self._root_partition,
                      self._ROOT_PARTITION_MOUNT_POINT),
@@ -306,7 +306,44 @@ class PCDevice(Device):
         if result is None or result.returncode is not 0:
             logging.critical("Failed mounting internal storage.\n{0}"
                              .format(result))
-#            return False
+#           return False        
+
+    def _mount_two_layers(self):
+        logging.info("mounts two layers")
+        result = self.execute(
+            command=("modprobe", "vfat"),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        logging.info("modprobe vfat returncode: " + str(result.returncode)
+                     + ".\n{0}" .format(result))
+        # mount the first layer of .hddimg
+        result = self.execute(
+            command=("mount", self._target_device,
+                     self._SUPER_ROOT_PARTITION_MOUNT_POINT),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
+            logging.critical("Failed mounting internal hddimg storage.\n{0}"
+                             .format(result))
+            return False
+        #mount the second layer of .hddimg
+        result = self.execute(
+            command=("mount", self._SUPER_ROOT_PARTITION_MOUNT_POINT + 
+                     self._rootfs_filename, 
+                     self._ROOT_PARTITION_MOUNT_POINT),
+                     timeout=self._SSH_SHORT_GENERIC_TIMEOUT, )
+        if result is None or result.returncode is not 0:
+            logging.critical("Failed mounting the rootfs of hddimg.\n{0}"
+                             .format(result))
+            return False
+
+    def _install_tester_public_key(self):
+        """
+        Copy ssh public key to root user on the target device.
+        """
+        # update info about the partition table
+        if eval(self._uses_hddimg) is False:
+            self._mount_single_layer()
+        else:
+            self._mount_two_layers()
         # Identify the home of the root user
         result = self.execute(
             command=("cat",
