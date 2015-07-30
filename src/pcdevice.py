@@ -233,7 +233,7 @@ class PCDevice(Device):
         Tries to put the device into the specified mode.
         """
         # Attempts twice but one should be sufficient.
-        for _ in range(2):
+        for _ in range(4):
             self._power_cycle()
             logging.debug("Going to execute:\n" +
 			  "pem" +
